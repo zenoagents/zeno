@@ -1,0 +1,15 @@
+[tg]
+bottoken = "123456:ABCDEF"
+heartbeat_enabled = true
+heartbeat_interval_minutes = 5
+heartbeat_chat_ids = []
+
+[openrouter]
+api_key = "sk-or-v1-..."
+model = "openai/gpt-4.1-mini"
+
+[notion]
+# Replace with your Notion integration token.
+api_key = "secret_..."
+# Replace with the database ID you want to query.
+database_id = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"

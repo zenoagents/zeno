@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "rootDir": ".",
+    "outDir": "dist",
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmitOnError": true,
+    "moduleDetection": "force"
+  },
+  "include": [
+    "*.ts",
+    "examples/**/*.ts"
+  ],
+  "exclude": [
+    "dist",
+    "node_modules",
+    "scripts",
+    "examples/13-notion-search-databases.ts"
+  ]
+}

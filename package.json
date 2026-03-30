@@ -1,0 +1,31 @@
+{
+  "name": "zeno",
+  "version": "0.1.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "build:scripts": "tsc -p tsconfig.scripts.json",
+    "start": "npm run build && node dist/examples/01-minimal.js",
+    "telegram": "npm run build && node dist/telegram.js",
+    "keys:check": "npm run build:scripts && node dist/scripts/check-api-keys.js",
+    "keys:show": "npm run build:scripts && node dist/scripts/show-api-keys.js",
+    "notion:check": "npm run build:scripts && node dist/scripts/check-notion.js",
+    "notion:add-to-table": "npm run build:scripts && node dist/scripts/add-to-notion-table.js",
+    "notion:list-databases": "npm run build:scripts && node dist/scripts/list-notion-databases.js",
+    "notion:list-pages": "npm run build:scripts && node dist/scripts/list-notion-pages.js",
+    "notion:create-entry": "npm run build:scripts && node dist/scripts/create-notion-entry.js",
+    "notion:create-test-page": "npm run build:scripts && node dist/scripts/create-notion-test-page.js",
+    "cost:openrouter": "npm run build:scripts && node dist/scripts/openrouter-cost.js",
+    "models:openrouter": "npm run build:scripts && node dist/scripts/list-openrouter-models.js",
+    "model:set-default": "npm run build:scripts && node dist/scripts/set-default-model.js"
+  },
+  "dependencies": {
+    "@mariozechner/pi-coding-agent": "^0.61.1",
+    "@notionhq/client": "^2.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.0",
+    "typescript": "^5.7.3"
+  }
+}
