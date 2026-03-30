@@ -52,16 +52,6 @@ type TelegramUpdate = {
 		chat: { id: number; type: string };
 		from?: { is_bot?: boolean };
 	};
-	callback_query?: {
-		id: string;
-		data?: string;
-		message?: {
-			message_id: number;
-			message_thread_id?: number;
-			chat: { id: number; type: string };
-		};
-		from?: { is_bot?: boolean };
-	};
 };
 
 type OpenRouterCallRecord = {
@@ -79,10 +69,6 @@ type ParsedTelegramCommand = {
 type TelegramBotCommand = {
 	command: string;
 	description: string;
-};
-
-type TelegramReplyMarkup = {
-	inline_keyboard?: Array<Array<{ text: string; callback_data: string }>>;
 };
 
 type ActiveSchedulingContext = {
@@ -120,30 +106,6 @@ const BOT_COMMANDS: TelegramBotCommand[] = [
 	{ command: "schedules", description: "⏰ List scheduled notifications" },
 	{ command: "unschedule", description: "❌ Cancel a schedule by id" },
 ];
-
-const TELEGRAM_MAIN_MENU: TelegramReplyMarkup = {
-	inline_keyboard: [
-		[
-			{ text: "📊 Status", callback_data: "command:status" },
-			{ text: "💸 Usage", callback_data: "command:usage" },
-			{ text: "🧾 Cost", callback_data: "command:cost" },
-		],
-		[
-			{ text: "🧠 Model", callback_data: "command:model" },
-			{ text: "🗂️ Context", callback_data: "command:context" },
-			{ text: "🛠️ Skills", callback_data: "command:skills" },
-		],
-		[
-			{ text: "🔔 Pair", callback_data: "command:pair" },
-			{ text: "👥 Pairings", callback_data: "command:pairings" },
-			{ text: "⏰ Schedules", callback_data: "command:schedules" },
-		],
-		[
-			{ text: "🔕 Unpair", callback_data: "command:unpair" },
-			{ text: "❌ Unschedule", callback_data: "help:unschedule" },
-		],
-	],
-};
 
 const logger = createLogger("telegram");
 const heartbeatLogger = createLogger("heartbeat");
@@ -874,21 +836,12 @@ async function sendTelegramMessage(params: {
 	text: string;
 	messageThreadId?: number;
 	replyToMessageId?: number;
-	replyMarkup?: TelegramReplyMarkup;
 }) {
 	await telegramApi("sendMessage", {
 		chat_id: params.chatId,
 		text: params.text,
 		message_thread_id: params.messageThreadId,
 		reply_to_message_id: params.replyToMessageId,
-		reply_markup: params.replyMarkup,
-	});
-}
-
-async function answerTelegramCallbackQuery(callbackQueryId: string, text?: string) {
-	await telegramApi("answerCallbackQuery", {
-		callback_query_id: callbackQueryId,
-		text,
 	});
 }
 
@@ -918,8 +871,6 @@ function buildStartMessage() {
 		"🧠 Agent: /model /context /skills",
 		"🔔 Chat pairing: /pair /unpair /pairings",
 		"⏰ Schedules: /schedules /unschedule <id>",
-		"",
-		"Use the Telegram command menu for the full list, or tap a button below.",
 	].join("\n");
 }
 
@@ -929,9 +880,8 @@ async function handleTelegramCommand(params: {
 	messageThreadId?: number;
 	replyToMessageId?: number;
 	sourceMessage?: { chat: { id: number }; message_thread_id?: number };
-	showMenu?: boolean;
 }) {
-	const { command, chatId, messageThreadId, replyToMessageId, sourceMessage, showMenu } = params;
+	const { command, chatId, messageThreadId, replyToMessageId, sourceMessage } = params;
 
 	if (command.name === "start") {
 		await sendTelegramMessage({
@@ -939,7 +889,6 @@ async function handleTelegramCommand(params: {
 			messageThreadId,
 			replyToMessageId,
 			text: buildStartMessage(),
-			replyMarkup: TELEGRAM_MAIN_MENU,
 		});
 		return true;
 	}
@@ -950,7 +899,6 @@ async function handleTelegramCommand(params: {
 			messageThreadId,
 			replyToMessageId,
 			text: await formatStatusForTelegram(chatId, messageThreadId),
-			replyMarkup: showMenu ? TELEGRAM_MAIN_MENU : undefined,
 		});
 		return true;
 	}
@@ -964,7 +912,6 @@ async function handleTelegramCommand(params: {
 				openRouterUsageState.calls.length > 0
 					? formatCurrentOpenRouterUsage()
 					: "OpenRouter usage (current session)\nNo OpenRouter calls yet in this running session.",
-			replyMarkup: showMenu ? TELEGRAM_MAIN_MENU : undefined,
 		});
 		return true;
 	}
@@ -978,7 +925,6 @@ async function handleTelegramCommand(params: {
 				messageThreadId,
 				replyToMessageId,
 				text: await formatModelSelectionHelp(),
-				replyMarkup: showMenu ? TELEGRAM_MAIN_MENU : undefined,
 			});
 			return true;
 		}
@@ -990,7 +936,6 @@ async function handleTelegramCommand(params: {
 				messageThreadId,
 				replyToMessageId,
 				text: "Invalid model format. Use /model <provider/model> (example: /model openai/gpt-5.4-pro).",
-				replyMarkup: showMenu ? TELEGRAM_MAIN_MENU : undefined,
 			});
 			return true;
 		}
@@ -1003,7 +948,6 @@ async function handleTelegramCommand(params: {
 				messageThreadId,
 				replyToMessageId,
 				text: formatDisallowedModelMessage(requestedRef),
-				replyMarkup: showMenu ? TELEGRAM_MAIN_MENU : undefined,
 			});
 			return true;
 		}
@@ -1015,7 +959,6 @@ async function handleTelegramCommand(params: {
 				messageThreadId,
 				replyToMessageId,
 				text: formatUnavailableAllowlistedModelMessage(configuredRef),
-				replyMarkup: showMenu ? TELEGRAM_MAIN_MENU : undefined,
 			});
 			return true;
 		}
@@ -1032,7 +975,6 @@ async function handleTelegramCommand(params: {
 				messageThreadId,
 				replyToMessageId,
 				text: `Failed to switch model to ${toModelRef(model.provider, model.id)}: ${reason}`,
-				replyMarkup: showMenu ? TELEGRAM_MAIN_MENU : undefined,
 			});
 			return true;
 		}
@@ -1044,7 +986,6 @@ async function handleTelegramCommand(params: {
 			text: [`Model switched to ${toModelRef(model.provider, model.id)}`, `Name: ${model.name}`].join(
 				"\n",
 			),
-			replyMarkup: showMenu ? TELEGRAM_MAIN_MENU : undefined,
 		});
 		return true;
 	}
@@ -1055,7 +996,6 @@ async function handleTelegramCommand(params: {
 			messageThreadId,
 			replyToMessageId,
 			text: formatCommandContext(),
-			replyMarkup: showMenu ? TELEGRAM_MAIN_MENU : undefined,
 		});
 		return true;
 	}
@@ -1067,7 +1007,6 @@ async function handleTelegramCommand(params: {
 				messageThreadId,
 				replyToMessageId,
 				text: "Pairing is only available from a chat message right now. Send /pair in the chat to save it.",
-				replyMarkup: showMenu ? TELEGRAM_MAIN_MENU : undefined,
 			});
 			return true;
 		}
@@ -1078,7 +1017,6 @@ async function handleTelegramCommand(params: {
 			messageThreadId,
 			replyToMessageId,
 			text: `Paired ${target} for startup and heartbeat delivery.`,
-			replyMarkup: showMenu ? TELEGRAM_MAIN_MENU : undefined,
 		});
 		return true;
 	}
@@ -1089,7 +1027,6 @@ async function handleTelegramCommand(params: {
 			messageThreadId,
 			replyToMessageId,
 			text: await formatCurrentSkills(),
-			replyMarkup: showMenu ? TELEGRAM_MAIN_MENU : undefined,
 		});
 		return true;
 	}
@@ -1101,7 +1038,6 @@ async function handleTelegramCommand(params: {
 				messageThreadId,
 				replyToMessageId,
 				text: "Unpairing is only available from a chat message right now. Send /unpair in the chat to remove it.",
-				replyMarkup: showMenu ? TELEGRAM_MAIN_MENU : undefined,
 			});
 			return true;
 		}
@@ -1115,7 +1051,6 @@ async function handleTelegramCommand(params: {
 				store.heartbeatTargets.length > 0
 					? `Removed ${target}. Remaining pairings:\n${store.heartbeatTargets.join("\n")}`
 					: `Removed ${target}. No saved pairings remain.`,
-			replyMarkup: showMenu ? TELEGRAM_MAIN_MENU : undefined,
 		});
 		return true;
 	}
@@ -1130,7 +1065,6 @@ async function handleTelegramCommand(params: {
 				pairings.length > 0
 					? `Saved pairings:\n${pairings.join("\n")}`
 					: "No saved pairings yet. Send /pair in the chat you want to notify on startup.",
-			replyMarkup: showMenu ? TELEGRAM_MAIN_MENU : undefined,
 		});
 		return true;
 	}
@@ -1141,7 +1075,6 @@ async function handleTelegramCommand(params: {
 			messageThreadId,
 			replyToMessageId,
 			text: formatScheduledTasksForTelegram(chatId, messageThreadId),
-			replyMarkup: showMenu ? TELEGRAM_MAIN_MENU : undefined,
 		});
 		return true;
 	}
@@ -1154,7 +1087,6 @@ async function handleTelegramCommand(params: {
 				messageThreadId,
 				replyToMessageId,
 				text: "Usage: /unschedule <schedule_id>",
-				replyMarkup: showMenu ? TELEGRAM_MAIN_MENU : undefined,
 			});
 			return true;
 		}
@@ -1171,7 +1103,6 @@ async function handleTelegramCommand(params: {
 			text: result.removed
 				? `Removed schedule ${scheduleId}.`
 				: `No schedule found for id ${scheduleId} in this chat.`,
-			replyMarkup: showMenu ? TELEGRAM_MAIN_MENU : undefined,
 		});
 		return true;
 	}
@@ -1267,62 +1198,13 @@ while (true) {
 	const updates = await telegramApi<TelegramUpdate[]>("getUpdates", {
 			offset,
 			timeout: 30,
-			allowed_updates: ["message", "callback_query"],
+			allowed_updates: ["message"],
 		});
 
 		for (const update of updates) {
 			offset = Math.max(offset, update.update_id + 1);
 
 			const message = update.message;
-			const callbackQuery = update.callback_query;
-
-			if (callbackQuery?.message && !callbackQuery.from?.is_bot) {
-				try {
-					const callbackData = callbackQuery.data?.trim() ?? "";
-					const callbackMessage = callbackQuery.message;
-					const handledUnscheduleHelp = callbackData === "help:unschedule";
-
-					if (handledUnscheduleHelp) {
-						await answerTelegramCallbackQuery(callbackQuery.id);
-						await sendTelegramMessage({
-							chatId: callbackMessage.chat.id,
-							messageThreadId: callbackMessage.message_thread_id,
-							text: "To remove a schedule, send /unschedule <schedule_id>. Use /schedules to see ids for this chat.",
-							replyMarkup: TELEGRAM_MAIN_MENU,
-						});
-						continue;
-					}
-
-					if (callbackData.startsWith("command:")) {
-						const parsedCallbackCommand = parseTelegramCommand(`/${callbackData.slice("command:".length)}`);
-						if (parsedCallbackCommand) {
-							await answerTelegramCallbackQuery(callbackQuery.id);
-							const handled = await handleTelegramCommand({
-								command: parsedCallbackCommand,
-								chatId: callbackMessage.chat.id,
-								messageThreadId: callbackMessage.message_thread_id,
-								sourceMessage: callbackMessage,
-								showMenu: true,
-							});
-							if (handled) {
-								continue;
-							}
-						}
-					}
-
-					await answerTelegramCallbackQuery(callbackQuery.id, "That button is not available.");
-				} catch (error) {
-					logger.error("failed to handle callback query", {
-						callbackQueryId: callbackQuery.id,
-						error: error instanceof Error ? error.message : String(error),
-					});
-					try {
-						await answerTelegramCallbackQuery(callbackQuery.id, "Something went wrong.");
-					} catch {
-						// ignore
-					}
-				}
-			}
 
 			if (!message?.text?.trim() || message.from?.is_bot) {
 				continue;
@@ -1344,7 +1226,6 @@ while (true) {
 							messageThreadId: message.message_thread_id,
 							replyToMessageId: message.message_id,
 							sourceMessage: message,
-							showMenu: command.name === "start",
 						});
 						if (handled) {
 							continue;
