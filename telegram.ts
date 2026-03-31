@@ -841,12 +841,14 @@ async function sendTelegramMessage(params: {
 	text: string;
 	messageThreadId?: number;
 	replyToMessageId?: number;
+	replyMarkup?: Record<string, unknown>;
 }) {
 	await telegramApi("sendMessage", {
 		chat_id: params.chatId,
 		text: params.text,
 		message_thread_id: params.messageThreadId,
 		reply_to_message_id: params.replyToMessageId,
+		reply_markup: params.replyMarkup,
 	});
 }
 
@@ -887,6 +889,7 @@ async function handleTelegramCommand(params: {
 			messageThreadId,
 			replyToMessageId,
 			text: buildStartMessage(),
+			replyMarkup: { remove_keyboard: true },
 		});
 		return true;
 	}
@@ -1179,6 +1182,7 @@ if (startupPairings.length > 0) {
 				chatId: target.baseChatId,
 				messageThreadId: target.messageThreadId,
 				text: startupMessage,
+				replyMarkup: { remove_keyboard: true },
 			});
 			logger.info("startup message sent", { chatId: target.baseChatId, target: rawTarget });
 		} catch (error) {
