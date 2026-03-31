@@ -2,7 +2,7 @@ data/
 sessions/
 node_modules/
 dist/
-settings.toml
+credentials.toml
 logs/
 .DS_Store
 setopenrouterkey.sh

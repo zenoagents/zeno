@@ -1,17 +1,17 @@
 import { Client, isFullDatabase } from "@notionhq/client";
-import { loadSettingsToml } from "../settings.js";
+import { loadCredentialsToml } from "../credentials.js";
 
-const settings = await loadSettingsToml();
+const credentials = await loadCredentialsToml();
 const args = process.argv.slice(2);
 
-const configuredDatabaseId = process.env.NOTION_DATABASE_ID?.trim() || settings.notion?.database_id?.trim();
+const configuredDatabaseId = process.env.NOTION_DATABASE_ID?.trim() || credentials.notion?.database_id?.trim();
 const databaseId = configuredDatabaseId || args[0]?.trim();
 const titleArg = configuredDatabaseId ? args.join(" ").trim() : args.slice(1).join(" ").trim();
 const title = titleArg || `Test page ${new Date().toISOString()}`;
-const token = process.env.NOTION_TOKEN?.trim() || settings.notion?.api_key?.trim();
+const token = process.env.NOTION_TOKEN?.trim() || credentials.notion?.api_key?.trim();
 
 if (!token) {
-	throw new Error("Missing Notion token. Set NOTION_TOKEN or notion.api_key in settings.toml.");
+	throw new Error("Missing Notion token. Set NOTION_TOKEN or notion.api_key in credentials.toml.");
 }
 
 if (!databaseId) {

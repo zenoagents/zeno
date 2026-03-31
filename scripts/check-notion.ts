@@ -1,9 +1,9 @@
-import { loadSettingsToml } from "../settings.js";
+import { loadCredentialsToml } from "../credentials.js";
 
-const settings = await loadSettingsToml();
+const credentials = await loadCredentialsToml();
 
-const token = process.env.NOTION_TOKEN?.trim() || settings.notion?.api_key?.trim();
-const databaseId = process.env.NOTION_DATABASE_ID?.trim() || settings.notion?.database_id?.trim();
+const token = process.env.NOTION_TOKEN?.trim() || credentials.notion?.api_key?.trim();
+const databaseId = process.env.NOTION_DATABASE_ID?.trim() || credentials.notion?.database_id?.trim();
 
 console.log("Notion configuration");
 console.log(`token\t${token ? "set" : "missing"}`);

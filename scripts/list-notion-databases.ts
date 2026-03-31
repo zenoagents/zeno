@@ -1,15 +1,15 @@
 import { Client } from "@notionhq/client";
-import { loadSettingsToml } from "../settings.js";
+import { loadCredentialsToml } from "../credentials.js";
 
-const settings = await loadSettingsToml();
+const credentials = await loadCredentialsToml();
 
 const auth =
 	process.env.NOTION_API_KEY?.trim() ||
 	process.env.NOTION_TOKEN?.trim() ||
-	settings.notion?.api_key?.trim();
+	credentials.notion?.api_key?.trim();
 
 if (!auth) {
-	throw new Error("Missing Notion API key. Set NOTION_API_KEY, NOTION_TOKEN, or notion.api_key in settings.toml.");
+	throw new Error("Missing Notion API key. Set NOTION_API_KEY, NOTION_TOKEN, or notion.api_key in credentials.toml.");
 }
 
 const notion = new Client({ auth });

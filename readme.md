@@ -13,4 +13,4 @@ Requirements
 - Telegram bot token https://core.telegram.org/bots/tutorial
 
 
-Copy settings_example.toml to settings.toml and fill it
+Copy `credentials.example.toml` to `credentials.toml` and fill it

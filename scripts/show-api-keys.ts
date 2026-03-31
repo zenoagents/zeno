@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { loadSettingsToml } from "../settings.js";
+import { loadCredentialsToml } from "../credentials.js";
 
 const providerEnvVars = {
 	openai: ["OPENAI_API_KEY"],
@@ -42,26 +42,26 @@ try {
 	authReadError = error as NodeJS.ErrnoException | Error;
 }
 
-const settings = await loadSettingsToml();
+const credentials = await loadCredentialsToml();
 
 const rows = Object.entries(providerEnvVars)
 	.map(([provider, envVars]) => {
 		const envSet = envVars.filter((name) => Boolean(process.env[name]));
 		const stored = storedProviders.has(provider);
 
-		const settingsConfigured =
-			(provider === "openrouter" && Boolean(settings.openrouter?.api_key)) ||
-			(provider === "openai" && Boolean(settings.openai?.api_key)) ||
-			(provider === "telegram" && Boolean(settings.tg?.bottoken)) ||
-			(provider === "notion" && Boolean(settings.notion?.api_key));
+		const credentialsConfigured =
+			(provider === "openrouter" && Boolean(credentials.openrouter?.api_key)) ||
+			(provider === "openai" && Boolean(credentials.openai?.api_key)) ||
+			(provider === "telegram" && Boolean(credentials.tg?.bottoken)) ||
+			(provider === "notion" && Boolean(credentials.notion?.api_key));
 
-		const anyAuth = stored || envSet.length > 0 || settingsConfigured;
+		const anyAuth = stored || envSet.length > 0 || credentialsConfigured;
 
 		return {
 			provider,
 			status: anyAuth ? "configured" : "missing",
 			env: envSet.length > 0 ? envSet.join(", ") : "-",
-			settings: settingsConfigured ? "yes" : "-",
+			credentials: credentialsConfigured ? "yes" : "-",
 			stored: stored ? "yes" : "no",
 		};
 	})
@@ -71,37 +71,37 @@ const configured = rows.filter((row) => row.status === "configured");
 
 console.log(`Configured providers: ${configured.length}/${rows.length}`);
 console.log();
-console.log("provider\tstatus\tenv vars set\tsettings.toml\tstored in auth.json");
+console.log("provider\tstatus\tenv vars set\tcredentials.toml\tstored in auth.json");
 
 for (const row of rows) {
-	console.log(`${row.provider}\t${row.status}\t${row.env}\t${row.settings}\t${row.stored}`);
+	console.log(`${row.provider}\t${row.status}\t${row.env}\t${row.credentials}\t${row.stored}`);
 }
 
-if (settings.openrouter?.api_key) {
+if (credentials.openrouter?.api_key) {
 	console.log();
-	console.log("settings.toml:");
+	console.log("credentials.toml:");
 	console.log(`- openrouter.api_key: set`);
-	console.log(`- openrouter.model: ${settings.openrouter.model ?? "-"}`);
+	console.log(`- openrouter.model: ${credentials.openrouter.model ?? "-"}`);
 }
 
-if (settings.openai?.api_key) {
+if (credentials.openai?.api_key) {
 	console.log();
-	console.log("settings.toml:");
+	console.log("credentials.toml:");
 	console.log(`- openai.api_key: set`);
-	console.log(`- openai.model: ${settings.openai.model ?? "-"}`);
+	console.log(`- openai.model: ${credentials.openai.model ?? "-"}`);
 }
 
-if (settings.tg?.bottoken) {
+if (credentials.tg?.bottoken) {
 	console.log();
-	console.log("settings.toml:");
+	console.log("credentials.toml:");
 	console.log("- tg.bottoken: set");
 }
 
-if (settings.notion?.api_key) {
+if (credentials.notion?.api_key) {
 	console.log();
-	console.log("settings.toml:");
+	console.log("credentials.toml:");
 	console.log("- notion.api_key: set");
-	console.log(`- notion.database_id: ${settings.notion.database_id ?? "-"}`);
+	console.log(`- notion.database_id: ${credentials.notion.database_id ?? "-"}`);
 }
 
 if (authReadError && "code" in authReadError && authReadError.code !== "ENOENT") {

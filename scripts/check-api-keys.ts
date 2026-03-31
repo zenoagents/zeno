@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { loadSettingsToml } from "../settings.js";
+import { loadCredentialsToml } from "../credentials.js";
 
 const providerEnvVars = {
 	openai: ["OPENAI_API_KEY"],
@@ -41,20 +41,20 @@ try {
 	authReadError = error as NodeJS.ErrnoException | Error;
 }
 
-const settings = await loadSettingsToml();
+const credentials = await loadCredentialsToml();
 
 const rows = Object.entries(providerEnvVars)
 	.map(([provider, envVars]) => {
 		const envSet = envVars.filter((name) => Boolean(process.env[name]));
 		const stored = storedProviders.has(provider);
-		const settingsConfigured = provider === "notion" && Boolean(settings.notion?.api_key);
-		const anyAuth = stored || envSet.length > 0 || settingsConfigured;
+		const credentialsConfigured = provider === "notion" && Boolean(credentials.notion?.api_key);
+		const anyAuth = stored || envSet.length > 0 || credentialsConfigured;
 
 		return {
 			provider,
 			status: anyAuth ? "configured" : "missing",
 			env: envSet.length > 0 ? envSet.join(", ") : "-",
-			settings: settingsConfigured ? "yes" : "-",
+			credentials: credentialsConfigured ? "yes" : "-",
 			stored: stored ? "yes" : "no",
 		};
 	})
@@ -64,10 +64,10 @@ const configured = rows.filter((row) => row.status === "configured");
 
 console.log(`Configured providers: ${configured.length}/${rows.length}`);
 console.log();
-console.log("provider\tstatus\tenv vars set\tsettings.toml\tstored in auth.json");
+console.log("provider\tstatus\tenv vars set\tcredentials.toml\tstored in auth.json");
 
 for (const row of rows) {
-	console.log(`${row.provider}\t${row.status}\t${row.env}\t${row.settings}\t${row.stored}`);
+	console.log(`${row.provider}\t${row.status}\t${row.env}\t${row.credentials}\t${row.stored}`);
 }
 
 if (authReadError && "code" in authReadError && authReadError.code !== "ENOENT") {

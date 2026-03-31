@@ -28,12 +28,16 @@ import {
 import { createLogger } from "./logging.js";
 import { createNotificationScheduler } from "./scheduler.js";
 import {
+	acquireTelegramProcessLock,
+	isTelegramGetUpdatesConflict,
+} from "./telegram-process-lock.js";
+import {
 	buildAllowlistedModelLookup,
 	getAllowlistedModelRefCandidates,
 	loadDefaultModelSelections,
 	normalizeModelRef,
 } from "./models.js";
-import { applyConfigToEnv, getTelegramBotToken, loadSettingsToml } from "./settings.js";
+import { applyConfigToEnv, getTelegramBotToken, loadCredentialsToml } from "./credentials.js";
 import {
 	addHeartbeatPairing,
 	formatTelegramTargetFromMessage,
@@ -94,7 +98,7 @@ type CancelScheduledTaskParams = {
 
 const BOT_COMMANDS: TelegramBotCommand[] = [
 	{ command: "start", description: "🏁 Show bot status and menu" },
-	{ command: "status", description: "📊 Show uptime and current settings" },
+	{ command: "status", description: "📊 Show uptime and current config" },
 	{ command: "usage", description: "💸 Show OpenRouter usage for this session" },
 	{ command: "cost", description: "🧾 Alias for /usage" },
 	{ command: "model", description: "🧠 Show or set the active model" },
@@ -118,20 +122,21 @@ logger.info("bot booting", {
 	logFilePath: logger.logFilePath,
 });
 
-const settings = await loadSettingsToml();
-applyConfigToEnv(settings);
-const token = getTelegramBotToken(settings);
+const credentials = await loadCredentialsToml();
+applyConfigToEnv(credentials);
+const token = getTelegramBotToken(credentials);
 const projectSkillsDir = join(process.cwd(), "skills");
 const projectSessionDir = join(process.cwd(), "sessions");
+await acquireTelegramProcessLock();
 
-logger.info("settings loaded", {
-	heartbeatEnabled: settings.tg?.heartbeat_enabled ?? true,
-	heartbeatIntervalMinutes: settings.tg?.heartbeat_interval_minutes ?? 5,
-	initialHeartbeatChats: settings.tg?.heartbeat_chat_ids ?? [],
-	openrouterConfigured: Boolean(settings.openrouter?.api_key),
-	openaiConfigured: Boolean(settings.openai?.api_key),
+logger.info("credentials loaded", {
+	heartbeatEnabled: credentials.tg?.heartbeat_enabled ?? true,
+	heartbeatIntervalMinutes: credentials.tg?.heartbeat_interval_minutes ?? 5,
+	initialHeartbeatChats: credentials.tg?.heartbeat_chat_ids ?? [],
+	openrouterConfigured: Boolean(credentials.openrouter?.api_key),
+	openaiConfigured: Boolean(credentials.openai?.api_key),
 });
-if (!settings.openrouter?.api_key && !settings.openai?.api_key) {
+if (!credentials.openrouter?.api_key && !credentials.openai?.api_key) {
 	logger.warn(
 		"No OpenRouter or OpenAI API key configured. Command messages will work, but normal prompts will fail until a provider key is set.",
 	);
@@ -555,7 +560,7 @@ function formatScheduledTasksForTelegram(chatId: number, messageThreadId?: numbe
 	return truncateTelegramMessage(lines.join("\n"));
 }
 
-function formatSettingsValue(value?: string) {
+function formatCredentialValue(value?: string) {
 	return value?.trim() ? value.trim() : "not set";
 }
 
@@ -570,17 +575,17 @@ async function formatStatusForTelegram(chatId: number, messageThreadId?: number)
 		`Uptime: ${formatUptime(process.uptime())}`,
 		`Current model: ${currentModel}`,
 		"",
-		"Settings",
-		`Heartbeat: ${(settings.tg?.heartbeat_enabled ?? true) ? "enabled" : "disabled"} (every ${settings.tg?.heartbeat_interval_minutes ?? 5}m)`,
-		`Configured heartbeat chats: ${settings.tg?.heartbeat_chat_ids?.length ?? 0}`,
+		"Credentials",
+		`Heartbeat: ${(credentials.tg?.heartbeat_enabled ?? true) ? "enabled" : "disabled"} (every ${credentials.tg?.heartbeat_interval_minutes ?? 5}m)`,
+		`Configured heartbeat chats: ${credentials.tg?.heartbeat_chat_ids?.length ?? 0}`,
 		`Saved pairings: ${pairings.length}`,
 		`Schedules in this chat: ${scheduleCount}`,
 		`OpenRouter API key: ${process.env.OPENROUTER_API_KEY ? "configured" : "missing"}`,
-		`OpenRouter default model: ${formatSettingsValue(settings.openrouter?.model)}`,
+		`OpenRouter default model: ${formatCredentialValue(credentials.openrouter?.model)}`,
 		`OpenAI API key: ${process.env.OPENAI_API_KEY ? "configured" : "missing"}`,
-		`OpenAI default model: ${formatSettingsValue(settings.openai?.model)}`,
+		`OpenAI default model: ${formatCredentialValue(credentials.openai?.model)}`,
 		`Notion API key: ${process.env.NOTION_TOKEN ? "configured" : "missing"}`,
-		`Notion database id: ${formatSettingsValue(process.env.NOTION_DATABASE_ID || settings.notion?.database_id)}`,
+		`Notion database id: ${formatCredentialValue(process.env.NOTION_DATABASE_ID || credentials.notion?.database_id)}`,
 	];
 
 	return truncateTelegramMessage(lines.join("\n"));
@@ -591,7 +596,7 @@ function formatPromptFailureForTelegram(error: unknown) {
 		if (error.message.includes("No API key found")) {
 			return [
 				"I received your message, but no model API key is configured yet.",
-				"Set OPENROUTER_API_KEY or OPENAI_API_KEY (or configure it in settings.toml), then restart the bot.",
+				"Set OPENROUTER_API_KEY or OPENAI_API_KEY (or configure it in credentials.toml), then restart the bot.",
 			].join("\n");
 		}
 
@@ -853,13 +858,6 @@ async function configureTelegramCommandMenu() {
 			scope,
 		});
 	}
-
-	// Ask Telegram clients to show the command menu button by default.
-	await telegramApi("setChatMenuButton", {
-		menu_button: {
-			type: "commands",
-		},
-	});
 }
 
 function buildStartMessage() {
@@ -1116,7 +1114,7 @@ function buildStartupText() {
 		`Started at: ${processStartedAt.toISOString()}`,
 		buildStartupIdentityText(agentVersion),
 		buildHeartbeatText(agentVersion),
-		`Heartbeat: ${(settings.tg?.heartbeat_enabled ?? true) ? "enabled" : "disabled"} (every ${settings.tg?.heartbeat_interval_minutes ?? 5}m).`,
+		`Heartbeat: ${(credentials.tg?.heartbeat_enabled ?? true) ? "enabled" : "disabled"} (every ${credentials.tg?.heartbeat_interval_minutes ?? 5}m).`,
 		`Saved pairings will receive startup messages.`,
 	].join("\n");
 }
@@ -1133,7 +1131,7 @@ try {
 
 try {
 	await configureTelegramCommandMenu();
-	logger.info("telegram command menu configured", { commandCount: BOT_COMMANDS.length });
+	logger.info("telegram commands configured", { commandCount: BOT_COMMANDS.length });
 } catch (error) {
 	logger.warn("failed to configure Telegram command menu; continuing anyway", error);
 }
@@ -1147,9 +1145,9 @@ try {
 logger.info(`${BOT_NAME} Telegram bot started`);
 
 const heartbeat = startHeartbeatLoop({
-	enabled: settings.tg?.heartbeat_enabled ?? true,
-	intervalMinutes: settings.tg?.heartbeat_interval_minutes ?? 5,
-	initialChatTargets: await resolveHeartbeatTargets(settings.tg?.heartbeat_chat_ids ?? []),
+	enabled: credentials.tg?.heartbeat_enabled ?? true,
+	intervalMinutes: credentials.tg?.heartbeat_interval_minutes ?? 5,
+	initialChatTargets: await resolveHeartbeatTargets(credentials.tg?.heartbeat_chat_ids ?? []),
 	agentVersion,
 	logger: heartbeatLogger,
 	sendTelegramMessage,
@@ -1195,7 +1193,7 @@ let offset = 0;
 
 while (true) {
 	try {
-	const updates = await telegramApi<TelegramUpdate[]>("getUpdates", {
+		const updates = await telegramApi<TelegramUpdate[]>("getUpdates", {
 			offset,
 			timeout: 30,
 			allowed_updates: ["message"],
@@ -1265,16 +1263,12 @@ while (true) {
 			}
 		}
 	} catch (error) {
-		if (
-			error instanceof Error &&
-			error.message.toLowerCase().includes("getupdates") &&
-			(error.message.includes("HTTP 409") ||
-				error.message.includes("409 Conflict") ||
-				error.message.toLowerCase().includes("conflict"))
-		) {
-			logger.warn(
-				"getUpdates conflict detected; this usually means another bot process is long-polling with the same token, or a webhook is still active",
+		if (isTelegramGetUpdatesConflict(error)) {
+			logger.error(
+				"getUpdates conflict detected; another bot process is already polling this token or a webhook is still active",
+				error,
 			);
+			throw error;
 		}
 		logger.error("poll failed", error);
 		await new Promise((resolve) => setTimeout(resolve, 2_000));

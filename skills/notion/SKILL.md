@@ -19,13 +19,13 @@ Use this skill when the user needs to read or write Notion database data through
 
 ## Required Inputs
 
-- `notion.api_key` in `settings.toml`, or `NOTION_TOKEN` / `NOTION_API_KEY` in the environment.
-- `notion.database_id` in `settings.toml` for page listing or table inserts, unless live API discovery identifies the target database.
+- `notion.api_key` in `credentials.toml`, or `NOTION_TOKEN` / `NOTION_API_KEY` in the environment.
+- `notion.database_id` in `credentials.toml` for page listing or table inserts, unless live API discovery identifies the target database.
 
 ## Setup
 
 - Use `@notionhq/client` for API access.
-- Configure Notion credentials in `settings.toml`.
+- Configure Notion credentials in `credentials.toml`.
 
 ## Workflow
 
@@ -38,7 +38,7 @@ Use this skill when the user needs to read or write Notion database data through
 ## API Pattern
 
 1. Create a `Client` from `@notionhq/client`.
-2. Load credentials from `settings.toml` first, then fall back to env vars.
+2. Load credentials from `credentials.toml` first, then fall back to env vars.
 3. For database discovery, call `notion.search({ filter: { property: "object", value: "database" } })`.
 4. For page listing, call `notion.databases.query({ database_id, page_size: 50 })`.
 5. For inserts, retrieve the database schema, find the title property, then call `notion.pages.create(...)`.

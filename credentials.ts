@@ -1,9 +1,9 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
-export const settingsTomlPath = join(process.cwd(), "settings.toml");
+export const credentialsTomlPath = join(process.cwd(), "credentials.toml");
 
-export type BotSettings = {
+export type Credentials = {
 	tg?: {
 		bottoken?: string;
 		heartbeat_enabled?: boolean;
@@ -17,6 +17,10 @@ export type BotSettings = {
 	openai?: {
 		api_key?: string;
 		model?: string;
+	};
+	airtable?: {
+		api_key?: string;
+		base_id?: string;
 	};
 	notion?: {
 		api_key?: string;
@@ -91,11 +95,11 @@ function parseNumberList(raw: string): number[] {
 	return [...new Set(parsed)];
 }
 
-export async function loadSettingsToml(): Promise<BotSettings> {
+export async function loadCredentialsToml(): Promise<Credentials> {
 	try {
-		const raw = await readFile(settingsTomlPath, "utf8");
-		const settings: BotSettings = {};
-		let section: "tg" | "openrouter" | "openai" | "notion" | null = null;
+		const raw = await readFile(credentialsTomlPath, "utf8");
+		const credentials: Credentials = {};
+		let section: "tg" | "openrouter" | "openai" | "airtable" | "notion" | null = null;
 
 		for (const line of raw.split(/\r?\n/)) {
 			const trimmed = stripInlineComment(line);
@@ -110,9 +114,11 @@ export async function loadSettingsToml(): Promise<BotSettings> {
 							? "openrouter"
 							: sectionMatch[1] === "openai"
 								? "openai"
-								: sectionMatch[1] === "notion"
-									? "notion"
-								: null;
+								: sectionMatch[1] === "airtable"
+									? "airtable"
+									: sectionMatch[1] === "notion"
+										? "notion"
+									: null;
 				continue;
 			}
 
@@ -125,11 +131,11 @@ export async function loadSettingsToml(): Promise<BotSettings> {
 			const value = trimmed.slice(equalsIndex + 1).trim();
 
 			if (section === "tg") {
-				settings.tg ??= {};
+				credentials.tg ??= {};
 				if (key === "bottoken") {
 					const parsed = parseScalar(value);
 					if (typeof parsed === "string") {
-						settings.tg.bottoken = parsed.trim();
+						credentials.tg.bottoken = parsed.trim();
 					}
 					continue;
 				}
@@ -137,7 +143,7 @@ export async function loadSettingsToml(): Promise<BotSettings> {
 				if (key === "heartbeat_enabled") {
 					const parsed = parseScalar(value);
 					if (typeof parsed === "boolean") {
-						settings.tg.heartbeat_enabled = parsed;
+						credentials.tg.heartbeat_enabled = parsed;
 					}
 					continue;
 				}
@@ -145,7 +151,7 @@ export async function loadSettingsToml(): Promise<BotSettings> {
 				if (key === "heartbeat_interval_minutes") {
 					const parsed = parseScalar(value);
 					if (typeof parsed === "number" && Number.isFinite(parsed)) {
-						settings.tg.heartbeat_interval_minutes = parsed;
+						credentials.tg.heartbeat_interval_minutes = parsed;
 					}
 					continue;
 				}
@@ -153,110 +159,129 @@ export async function loadSettingsToml(): Promise<BotSettings> {
 				if (key === "heartbeat_chat_ids") {
 					const parsed = parseNumberList(value);
 					if (parsed.length > 0) {
-						settings.tg.heartbeat_chat_ids = parsed;
+						credentials.tg.heartbeat_chat_ids = parsed;
 					}
 				}
 				continue;
 			}
 
 			if (section === "openrouter") {
-				settings.openrouter ??= {};
+				credentials.openrouter ??= {};
 				if (key === "api_key") {
 					const parsed = parseScalar(value);
 					if (typeof parsed === "string") {
-						settings.openrouter.api_key = parsed.trim();
+						credentials.openrouter.api_key = parsed.trim();
 					}
 					continue;
 				}
 				if (key === "model") {
 					const parsed = parseScalar(value);
 					if (typeof parsed === "string") {
-						settings.openrouter.model = parsed.trim();
+						credentials.openrouter.model = parsed.trim();
 					}
 					continue;
 				}
 			}
 
 			if (section === "openai") {
-				settings.openai ??= {};
+				credentials.openai ??= {};
 				if (key === "api_key") {
 					const parsed = parseScalar(value);
 					if (typeof parsed === "string") {
-						settings.openai.api_key = parsed.trim();
+						credentials.openai.api_key = parsed.trim();
 					}
 					continue;
 				}
 				if (key === "model") {
 					const parsed = parseScalar(value);
 					if (typeof parsed === "string") {
-						settings.openai.model = parsed.trim();
+						credentials.openai.model = parsed.trim();
 					}
+					continue;
 				}
 			}
 
-			if (section === "notion") {
-				settings.notion ??= {};
+			if (section === "airtable") {
+				credentials.airtable ??= {};
 				if (key === "api_key") {
 					const parsed = parseScalar(value);
 					if (typeof parsed === "string") {
-						settings.notion.api_key = parsed.trim();
+						credentials.airtable.api_key = parsed.trim();
+					}
+					continue;
+				}
+				if (key === "base_id" || key === "AIRTABLE_BASE_ID") {
+					const parsed = parseScalar(value);
+					if (typeof parsed === "string") {
+						credentials.airtable.base_id = parsed.trim();
+					}
+				}
+				continue;
+			}
+
+			if (section === "notion") {
+				credentials.notion ??= {};
+				if (key === "api_key") {
+					const parsed = parseScalar(value);
+					if (typeof parsed === "string") {
+						credentials.notion.api_key = parsed.trim();
 					}
 					continue;
 				}
 				if (key === "database_id") {
 					const parsed = parseScalar(value);
 					if (typeof parsed === "string") {
-						settings.notion.database_id = parsed.trim();
+						credentials.notion.database_id = parsed.trim();
 					}
+					continue;
 				}
 			}
 		}
 
-		return settings;
+		return credentials;
 	} catch (error) {
 		const nodeError = error as NodeJS.ErrnoException;
 		if (nodeError.code === "ENOENT") {
 			return {};
 		}
+
 		throw error;
 	}
 }
 
-export function getTelegramBotToken(settings: BotSettings): string {
+export function getTelegramBotToken(credentials: Credentials): string {
 	const envToken = process.env.TELEGRAM_BOT_TOKEN?.trim();
 	if (envToken) {
 		if (!/^\d+:[A-Za-z0-9_-]+$/.test(envToken)) {
-			throw new Error(
-				"Invalid TELEGRAM_BOT_TOKEN. It must look like <digits>:<token>.",
-			);
+			throw new Error("Invalid TELEGRAM_BOT_TOKEN. It must look like <digits>:<token>.");
 		}
 		return envToken;
 	}
 
-	const token = settings.tg?.bottoken?.trim();
+	const token = credentials.tg?.bottoken?.trim();
 	if (token) {
 		if (!/^\d+:[A-Za-z0-9_-]+$/.test(token)) {
 			throw new Error(
-				`Invalid Telegram bot token in settings.toml. tg.bottoken must look like <digits>:<token>, not an OpenRouter key.`,
+				"Invalid Telegram bot token in credentials.toml. tg.bottoken must look like <digits>:<token>, not an OpenRouter key.",
 			);
 		}
 		return token;
 	}
 
-	throw new Error(`Missing Telegram bot token. Set tg.bottoken in ${settingsTomlPath} or TELEGRAM_BOT_TOKEN.`);
+	throw new Error(`Missing Telegram bot token. Set tg.bottoken in ${credentialsTomlPath} or TELEGRAM_BOT_TOKEN.`);
 }
 
-export function applyConfigToEnv(settings: BotSettings) {
-	if (!process.env.OPENROUTER_API_KEY && settings.openrouter?.api_key) {
-		process.env.OPENROUTER_API_KEY = settings.openrouter.api_key;
+export function applyConfigToEnv(credentials: Credentials) {
+	if (!process.env.OPENROUTER_API_KEY && credentials.openrouter?.api_key) {
+		process.env.OPENROUTER_API_KEY = credentials.openrouter.api_key;
 	}
-	if (!process.env.OPENAI_API_KEY && settings.openai?.api_key) {
-		process.env.OPENAI_API_KEY = settings.openai.api_key;
+	if (!process.env.OPENAI_API_KEY && credentials.openai?.api_key) {
+		process.env.OPENAI_API_KEY = credentials.openai.api_key;
 	}
-	if (!process.env.NOTION_TOKEN && settings.notion?.api_key) {
-		process.env.NOTION_TOKEN = settings.notion.api_key;
+	if (!process.env.NOTION_TOKEN && credentials.notion?.api_key) {
+		process.env.NOTION_TOKEN = credentials.notion.api_key;
 	}
-	if (!process.env.NOTION_DATABASE_ID && settings.notion?.database_id) {
-		process.env.NOTION_DATABASE_ID = settings.notion.database_id;
+	if (!process.env.NOTION_DATABASE_ID && credentials.notion?.database_id) {
+		process.env.NOTION_DATABASE_ID = credentials.notion.database_id;
 	}
 }
