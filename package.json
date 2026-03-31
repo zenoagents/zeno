@@ -18,7 +18,8 @@
     "notion:create-test-page": "npm run build:scripts && node dist/scripts/create-notion-test-page.js",
     "cost:openrouter": "npm run build:scripts && node dist/scripts/openrouter-cost.js",
     "models:openrouter": "npm run build:scripts && node dist/scripts/list-openrouter-models.js",
-    "model:set-default": "npm run build:scripts && node dist/scripts/set-default-model.js"
+    "model:set-default": "npm run build:scripts && node dist/scripts/set-default-model.js",
+    "loc:ts": "npm run build:scripts && node dist/scripts/count-ts-loc.js"
   },
   "dependencies": {
     "@mariozechner/pi-coding-agent": "^0.61.1",
