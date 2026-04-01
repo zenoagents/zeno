@@ -18,7 +18,18 @@ import dns from "node:dns";
 import { join } from "node:path";
 import { Agent, fetch as undiciFetch, interceptors } from "undici";
 import { BOT_NAME, BOT_RUNTIME_NAME } from "./branding.js";
-import { usageLogPath, type UsageRecord } from "./openrouter-cost.js";
+import {
+	formatOpenRouterCostReport,
+	inspectOpenRouterCost,
+	parseOpenRouterCostWindow,
+	usageLogPath,
+	type UsageRecord,
+} from "./openrouter-cost.js";
+import {
+	buildOpenRouterBalanceReport,
+	formatOpenRouterAmount,
+	inspectOpenRouterBalance,
+} from "./openrouter-balance.js";
 import {
 	buildHeartbeatText,
 	buildStartupIdentityText,
@@ -99,7 +110,8 @@ type CancelScheduledTaskParams = {
 const BOT_COMMANDS: TelegramBotCommand[] = [
 	{ command: "start", description: "🏁 Show bot status and menu" },
 	{ command: "status", description: "📊 Show uptime and current config" },
-	{ command: "usage", description: "💸 Show OpenRouter usage for this session" },
+	{ command: "balance", description: "💳 Show OpenRouter credits balance" },
+	{ command: "usage", description: "💸 Show OpenRouter usage or history" },
 	{ command: "cost", description: "🧾 Alias for /usage" },
 	{ command: "model", description: "🧠 Show or set the active model" },
 	{ command: "context", description: "🗂️ Show tools, skills, and runtime context" },
@@ -568,6 +580,16 @@ async function formatStatusForTelegram(chatId: number, messageThreadId?: number)
 	const pairings = await listHeartbeatPairings();
 	const currentModel = session.model ? toModelRef(session.model.provider, session.model.id) : "not selected";
 	const scheduleCount = toScheduleToolPayload(chatId, messageThreadId).length;
+	let openRouterBalanceLine = "OpenRouter balance: unavailable";
+	if (process.env.OPENROUTER_API_KEY) {
+		try {
+			const balance = await inspectOpenRouterBalance({ apiKey: process.env.OPENROUTER_API_KEY });
+			openRouterBalanceLine = `OpenRouter balance: ${formatOpenRouterAmount(balance.remainingCredits)} remaining / ${formatOpenRouterAmount(balance.totalCredits)} total`;
+		} catch (error) {
+			const message = error instanceof Error ? error.message.trim() : String(error);
+			openRouterBalanceLine = `OpenRouter balance: unavailable (${message || "unknown error"})`;
+		}
+	}
 	const lines = [
 		`${BOT_NAME} status`,
 		`Version: ${agentVersion}`,
@@ -580,6 +602,7 @@ async function formatStatusForTelegram(chatId: number, messageThreadId?: number)
 		`Configured heartbeat chats: ${credentials.tg?.heartbeat_chat_ids?.length ?? 0}`,
 		`Saved pairings: ${pairings.length}`,
 		`Schedules in this chat: ${scheduleCount}`,
+		openRouterBalanceLine,
 		`OpenRouter API key: ${process.env.OPENROUTER_API_KEY ? "configured" : "missing"}`,
 		`OpenRouter default model: ${formatCredentialValue(credentials.openrouter?.model)}`,
 		`OpenAI API key: ${process.env.OPENAI_API_KEY ? "configured" : "missing"}`,
@@ -867,7 +890,8 @@ function buildStartMessage() {
 		`${BOT_NAME} is connected. Send me a message and I will reply with the agent.`,
 		"",
 		"Menu",
-		"📊 Status: /status /usage /cost",
+		"📊 Status: /status /balance /usage /cost",
+		"📈 Usage history: /usage [today|7d|30d|90d|all]",
 		"🧠 Agent: /model /context /skills",
 		"🔔 Chat pairing: /pair /unpair /pairings",
 		"⏰ Schedules: /schedules /unschedule <id>",
@@ -905,15 +929,69 @@ async function handleTelegramCommand(params: {
 	}
 
 	if (command.name === "usage" || command.name === "cost") {
+		const windowArg = command.args.trim();
+		let usageText: string;
+
+		if (!windowArg) {
+			usageText =
+				openRouterUsageState.calls.length > 0
+					? formatCurrentOpenRouterUsage()
+					: "OpenRouter usage (current session)\nNo OpenRouter calls yet in this running session.\nTry /usage 30d or /usage all for saved history.";
+		} else {
+			try {
+				const days = parseOpenRouterCostWindow(windowArg);
+				if (days === null) {
+					usageText = "OpenRouter usage\nUsage: /usage [today|7d|30d|90d|all]";
+				} else {
+					const summary = await inspectOpenRouterCost({ days: days ?? undefined });
+					usageText = formatOpenRouterCostReport(summary);
+				}
+			} catch (error) {
+				const message = error instanceof Error ? error.message.trim() : String(error);
+				usageText = [
+					`OpenRouter usage`,
+					message || "Invalid usage window.",
+					"Try /usage 30d or /usage all.",
+				].join("\n");
+			}
+		}
+
 		await sendTelegramMessage({
 			chatId,
 			messageThreadId,
 			replyToMessageId,
-			text:
-				openRouterUsageState.calls.length > 0
-					? formatCurrentOpenRouterUsage()
-					: "OpenRouter usage (current session)\nNo OpenRouter calls yet in this running session.",
+			text: usageText,
 		});
+		return true;
+	}
+
+	if (command.name === "balance" || command.name === "credits") {
+		if (!process.env.OPENROUTER_API_KEY) {
+			await sendTelegramMessage({
+				chatId,
+				messageThreadId,
+				replyToMessageId,
+				text: "OpenRouter balance is unavailable because no OpenRouter API key is configured.",
+			});
+			return true;
+		}
+
+		try {
+			await sendTelegramMessage({
+				chatId,
+				messageThreadId,
+				replyToMessageId,
+				text: await buildOpenRouterBalanceReport({ apiKey: process.env.OPENROUTER_API_KEY }),
+			});
+		} catch (error) {
+			const message = error instanceof Error ? error.message.trim() : String(error);
+			await sendTelegramMessage({
+				chatId,
+				messageThreadId,
+				replyToMessageId,
+				text: `Failed to load OpenRouter balance: ${message || "unknown error"}`,
+			});
+		}
 		return true;
 	}
 

@@ -95,6 +95,34 @@ function formatUsd(value: number) {
 	return `$${value.toFixed(6)}`;
 }
 
+export function parseOpenRouterCostWindow(input?: string): number | undefined | null {
+	const normalized = input?.trim().toLowerCase();
+	if (!normalized) {
+		return null;
+	}
+	if (normalized === "7" || normalized === "7d") {
+		return 7;
+	}
+	if (normalized === "today" || normalized === "24h" || normalized === "1d") {
+		return 1;
+	}
+	if (normalized === "all") {
+		return undefined;
+	}
+
+	const match = normalized.match(/^(\d+)(?:\s*d(?:ays?)?)?$/i);
+	if (!match) {
+		throw new Error("Usage: [today|7d|30d|all]");
+	}
+
+	const days = Number.parseInt(match[1], 10);
+	if (!Number.isFinite(days) || days <= 0) {
+		throw new Error("Days must be a positive integer.");
+	}
+
+	return days;
+}
+
 function sortBreakdowns(map: Map<string, CostBreakdown>) {
 	return [...map.values()]
 		.sort((a, b) => {
