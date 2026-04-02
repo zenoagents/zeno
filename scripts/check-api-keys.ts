@@ -24,6 +24,7 @@ const providerEnvVars = {
 	"kimi-coding": ["KIMI_API_KEY"],
 	"github-copilot": ["COPILOT_GITHUB_TOKEN", "GH_TOKEN", "GITHUB_TOKEN"],
 	notion: ["NOTION_TOKEN"],
+	dropbox: ["DROPBOX_ACCESS_TOKEN"],
 } satisfies Record<string, string[]>;
 
 const authPath = join(homedir(), ".pi", "agent", "auth.json");
@@ -47,7 +48,9 @@ const rows = Object.entries(providerEnvVars)
 	.map(([provider, envVars]) => {
 		const envSet = envVars.filter((name) => Boolean(process.env[name]));
 		const stored = storedProviders.has(provider);
-		const credentialsConfigured = provider === "notion" && Boolean(credentials.notion?.api_key);
+		const credentialsConfigured =
+			(provider === "notion" && Boolean(credentials.notion?.api_key)) ||
+			(provider === "dropbox" && Boolean(credentials.dropbox?.access_token));
 		const anyAuth = stored || envSet.length > 0 || credentialsConfigured;
 
 		return {

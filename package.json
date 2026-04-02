@@ -16,6 +16,7 @@
     "notion:list-pages": "npm run build:scripts && node dist/scripts/list-notion-pages.js",
     "notion:create-entry": "npm run build:scripts && node dist/scripts/create-notion-entry.js",
     "notion:create-test-page": "npm run build:scripts && node dist/scripts/create-notion-test-page.js",
+    "sessions:sync:dropbox": "npm run build:scripts && node dist/scripts/sync-session-data-to-dropbox.js",
     "cost:openrouter": "npm run build:scripts && node dist/scripts/openrouter-cost.js",
     "models:openrouter": "npm run build:scripts && node dist/scripts/list-openrouter-models.js",
     "model:set-default": "npm run build:scripts && node dist/scripts/set-default-model.js",

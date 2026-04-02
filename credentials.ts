@@ -26,6 +26,10 @@ export type Credentials = {
 		api_key?: string;
 		database_id?: string;
 	};
+	dropbox?: {
+		access_token?: string;
+		session_remote_path?: string;
+	};
 };
 
 function stripInlineComment(line: string) {
@@ -99,7 +103,7 @@ export async function loadCredentialsToml(): Promise<Credentials> {
 	try {
 		const raw = await readFile(credentialsTomlPath, "utf8");
 		const credentials: Credentials = {};
-		let section: "tg" | "openrouter" | "openai" | "airtable" | "notion" | null = null;
+		let section: "tg" | "openrouter" | "openai" | "airtable" | "notion" | "dropbox" | null = null;
 
 		for (const line of raw.split(/\r?\n/)) {
 			const trimmed = stripInlineComment(line);
@@ -118,7 +122,9 @@ export async function loadCredentialsToml(): Promise<Credentials> {
 									? "airtable"
 									: sectionMatch[1] === "notion"
 										? "notion"
-									: null;
+										: sectionMatch[1] === "dropbox"
+											? "dropbox"
+										: null;
 				continue;
 			}
 
@@ -236,6 +242,24 @@ export async function loadCredentialsToml(): Promise<Credentials> {
 					continue;
 				}
 			}
+
+			if (section === "dropbox") {
+				credentials.dropbox ??= {};
+				if (key === "access_token") {
+					const parsed = parseScalar(value);
+					if (typeof parsed === "string") {
+						credentials.dropbox.access_token = parsed.trim();
+					}
+					continue;
+				}
+				if (key === "session_remote_path") {
+					const parsed = parseScalar(value);
+					if (typeof parsed === "string") {
+						credentials.dropbox.session_remote_path = parsed.trim();
+					}
+					continue;
+				}
+			}
 		}
 
 		return credentials;
@@ -283,5 +307,11 @@ export function applyConfigToEnv(credentials: Credentials) {
 	}
 	if (!process.env.NOTION_DATABASE_ID && credentials.notion?.database_id) {
 		process.env.NOTION_DATABASE_ID = credentials.notion.database_id;
+	}
+	if (!process.env.DROPBOX_ACCESS_TOKEN && credentials.dropbox?.access_token) {
+		process.env.DROPBOX_ACCESS_TOKEN = credentials.dropbox.access_token;
+	}
+	if (!process.env.DROPBOX_SESSION_REMOTE_PATH && credentials.dropbox?.session_remote_path) {
+		process.env.DROPBOX_SESSION_REMOTE_PATH = credentials.dropbox.session_remote_path;
 	}
 }

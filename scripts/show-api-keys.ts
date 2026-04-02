@@ -25,6 +25,7 @@ const providerEnvVars = {
 	"kimi-coding": ["KIMI_API_KEY"],
 	"github-copilot": ["COPILOT_GITHUB_TOKEN", "GH_TOKEN", "GITHUB_TOKEN"],
 	notion: ["NOTION_TOKEN"],
+	dropbox: ["DROPBOX_ACCESS_TOKEN"],
 } satisfies Record<string, string[]>;
 
 const authPath = join(homedir(), ".pi", "agent", "auth.json");
@@ -53,7 +54,8 @@ const rows = Object.entries(providerEnvVars)
 			(provider === "openrouter" && Boolean(credentials.openrouter?.api_key)) ||
 			(provider === "openai" && Boolean(credentials.openai?.api_key)) ||
 			(provider === "telegram" && Boolean(credentials.tg?.bottoken)) ||
-			(provider === "notion" && Boolean(credentials.notion?.api_key));
+			(provider === "notion" && Boolean(credentials.notion?.api_key)) ||
+			(provider === "dropbox" && Boolean(credentials.dropbox?.access_token));
 
 		const anyAuth = stored || envSet.length > 0 || credentialsConfigured;
 
@@ -102,6 +104,13 @@ if (credentials.notion?.api_key) {
 	console.log("credentials.toml:");
 	console.log("- notion.api_key: set");
 	console.log(`- notion.database_id: ${credentials.notion.database_id ?? "-"}`);
+}
+
+if (credentials.dropbox?.access_token) {
+	console.log();
+	console.log("credentials.toml:");
+	console.log("- dropbox.access_token: set");
+	console.log(`- dropbox.session_remote_path: ${credentials.dropbox.session_remote_path ?? "-"}`);
 }
 
 if (authReadError && "code" in authReadError && authReadError.code !== "ENOENT") {

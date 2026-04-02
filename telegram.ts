@@ -852,6 +852,12 @@ function formatCommandContext() {
    - Safe branch operations
    - Documentation: ${join(process.cwd(), "skills/git/SKILL.md")}
 
+2. **dropbox** - Session backup syncs to Dropbox
+   - Upload local session data snapshots
+   - Optional timestamped backup history
+   - Metadata verification after upload
+   - Documentation: ${join(process.cwd(), "skills/dropbox/SKILL.md")}
+
 ## Current Context
 
 - **Working directory**: ${process.cwd()}
