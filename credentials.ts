@@ -136,7 +136,17 @@ export async function loadCredentialsToml(): Promise<Credentials> {
 			const key = trimmed.slice(0, equalsIndex).trim();
 			const value = trimmed.slice(equalsIndex + 1).trim();
 
-			if (section === "tg") {
+			if (section === "tg" || section === null) {
+				const isTelegramHeartbeatKey =
+					key === "heartbeat_enabled" ||
+					key === "heartbeat_interval_minutes" ||
+					key === "heartbeat_chat_ids" ||
+					key === "bottoken";
+
+				if (!isTelegramHeartbeatKey && section === null) {
+					continue;
+				}
+
 				credentials.tg ??= {};
 				if (key === "bottoken") {
 					const parsed = parseScalar(value);
